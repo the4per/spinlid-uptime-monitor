@@ -15,7 +15,7 @@ jobs:
         run: |
           set -u
           FAIL=""
-          for pair in "api-health|https://spinlid.ru/api/v1/health" "main-page|https://spinlid.ru/" "TEST-broken|https://spinlid.ru/api/v1/health-DEFINITELY-BROKEN"; do
+          for pair in "api-health|https://spinlid.ru/api/v1/health" "main-page|https://spinlid.ru/"; do
             nm="${pair%%|*}"
             url="${pair#*|}"
             code=$(curl -s -o /dev/null -m 25 -w "%{http_code}" "$url" || echo 000)
