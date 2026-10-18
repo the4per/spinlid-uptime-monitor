@@ -34,6 +34,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           DETAIL: ${{ steps.check.outputs.detail }}
         run: |
+          gh label create uptime-alert --color d73a4a --description "алерт внешнего uptime-монитора" 2>/dev/null || true
           OPEN=$(gh issue list -R "$GITHUB_REPOSITORY" -l uptime-alert -s open --json number -q 'length')
           if [ "$OPEN" = "0" ]; then
             gh issue create -R "$GITHUB_REPOSITORY" -t "SpinLid недоступен" -l uptime-alert -b "$DETAIL — $(date -u '+%F %T UTC'), внешний монитор (GitHub Actions). Issue закроется при восстановлении."
