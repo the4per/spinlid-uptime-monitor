@@ -1,59 +1,46 @@
 name: uptime
-
-# Внешний uptime-монитор SpinLid (задание владельца 18.10, п.1).
-# Публичный репозиторий: scheduled-минуты GitHub бесплатны и не занимают
-# единственный self-hosted раннер основного репо (поэтому выключен uptime.yml
-# в Colaba). Алерты = issues с меткой uptime-alert: владелец репозитория
-# получает GitHub push/e-mail (канал жив, даже когда хост spinlid-prod лежит
-# целиком — что и требовалось: внутренний сторож этого не видит).
-
 on:
   schedule:
-    # Каждые 5 минут, минуты сдвинуты от «популярных» (GitHub роняет
-    # расписания в пиковые минуты — аудит 03.10 в основном репо).
     - cron: "2-59/5 * * * *"
-  workflow_dispatch:
-
+  workflow_dispatch: {}
 permissions:
   issues: write
   contents: read
-
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Проверка эндпоинтов
+      - name: check endpoints
         id: check
         run: |
           set -u
           FAIL=""
-          for pair in "api-health|https://spinlid.ru/api/v1/health" "main-page|https://spinlid.ru/" "TEST-broken|https://spinlid.ru/api/v1/health-DEFINITELY-BROKEN"; do
-            name="${pair%%|*}"; url="${pair#*|}"
+          for pair in "api-health|https://spinlid.ru/api/v1/health" "main-page|https://spinlid.ru/"; do
+            nm="${pair%%|*}"
+            url="${pair#*|}"
             code=$(curl -s -o /dev/null -m 25 -w "%{http_code}" "$url" || echo 000)
-            if [ "$code" != "200" ]; then FAIL="${FAIL:+$FAIL; }$name: HTTP $code"; fi
+            if [ "$code" != "200" ]; then
+              FAIL="${FAIL:+$FAIL; }$nm: HTTP $code"
+            fi
           done
           if [ -n "$FAIL" ]; then
-            echo "down=true" >> "$GITHUB_OUTPUT"
-            echo "detail=$FAIL" >> "$GITHUB_OUTPUT"
+            printf 'down=true\ndetail=%s\n' "$FAIL" >> "$GITHUB_OUTPUT"
           else
             echo "down=false" >> "$GITHUB_OUTPUT"
           fi
-
-      - name: Инцидент — открыть issue
+      - name: open incident issue
         if: steps.check.outputs.down == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          DETAIL: ${{ steps.check.outputs.detail }}
         run: |
           OPEN=$(gh issue list -R "$GITHUB_REPOSITORY" -l uptime-alert -s open --json number -q 'length')
           if [ "$OPEN" = "0" ]; then
-            gh issue create -R "$GITHUB_REPOSITORY"               -t "🔴 SpinLid недоступен" -l uptime-alert               -b "${{ steps.check.outputs.detail }}
-
-Проверка $(date -u '+%F %T UTC) внешним монитором (GitHub Actions, вне сервера). Внутренний сторож на spinlid-prod этот сценарий не видит. Issue закроется автоматически при восстановлении."
+            gh issue create -R "$GITHUB_REPOSITORY" -t "SpinLid недоступен" -l uptime-alert -b "$DETAIL — $(date -u '+%F %T UTC), внешний монитор (GitHub Actions). Issue закроется при восстановлении."
           fi
-
-      - name: Восстановление — закрыть issues
+      - name: close incidents on recovery
         if: steps.check.outputs.down == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh issue list -R "$GITHUB_REPOSITORY" -l uptime-alert -s open --json number -q '.[].number'             | xargs -r -I{} gh issue close -R "$GITHUB_REPOSITORY" {} -c "✅ Восстановлено, все эндпоинты 200 ($(date -u '+%F %T UTC))"
+          gh issue list -R "$GITHUB_REPOSITORY" -l uptime-alert -s open --json number -q '.[].number' | xargs -r -I{} gh issue close -R "$GITHUB_REPOSITORY" {} -c "Восстановлено, все эндпоинты 200 ($(date -u '+%F %T UTC))"
