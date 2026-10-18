@@ -36,11 +36,11 @@ jobs:
         run: |
           OPEN=$(gh issue list -R "$GITHUB_REPOSITORY" -l uptime-alert -s open --json number -q 'length')
           if [ "$OPEN" = "0" ]; then
-            gh issue create -R "$GITHUB_REPOSITORY" -t "SpinLid недоступен" -l uptime-alert -b "$DETAIL — $(date -u '+%F %T UTC), внешний монитор (GitHub Actions). Issue закроется при восстановлении."
+            gh issue create -R "$GITHUB_REPOSITORY" -t "SpinLid недоступен" -l uptime-alert -b "$DETAIL — $(date -u '+%F %T UTC'), внешний монитор (GitHub Actions). Issue закроется при восстановлении."
           fi
       - name: close incidents on recovery
         if: steps.check.outputs.down == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh issue list -R "$GITHUB_REPOSITORY" -l uptime-alert -s open --json number -q '.[].number' | xargs -r -I{} gh issue close -R "$GITHUB_REPOSITORY" {} -c "Восстановлено, все эндпоинты 200 ($(date -u '+%F %T UTC))"
+          gh issue list -R "$GITHUB_REPOSITORY" -l uptime-alert -s open --json number -q '.[].number' | xargs -r -I{} gh issue close -R "$GITHUB_REPOSITORY" {} -c "Восстановлено, все эндпоинты 200 ($(date -u '+%F %T UTC'))"
